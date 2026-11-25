@@ -2,8 +2,9 @@ import os
 from datetime import date, timedelta
 
 from dotenv import load_dotenv
+from psycopg.conninfo import conninfo_to_dict
 
-from app.database.connection import database_connection
+from app.database.connection import database_connection, get_database_url
 
 load_dotenv()
 
@@ -32,7 +33,11 @@ def seed_sample_patients() -> tuple[int, int]:
         )
     if os.getenv("APP_ENV", "development").lower() == "production":
         raise RuntimeError("Sample patient data cannot be seeded in production.")
-    if os.getenv("DB_HOST", "localhost").lower() not in {"localhost", "127.0.0.1", "::1"}:
+    hosts = conninfo_to_dict(get_database_url()).get("host", "").split(",")
+    hosts = [host.strip().lower().rstrip(".") for host in hosts if host.strip()]
+    if any(host == "neon.tech" or host.endswith(".neon.tech") for host in hosts):
+        raise RuntimeError("Sample patient data cannot be seeded into a Neon database.")
+    if not hosts or any(host not in {"localhost", "127.0.0.1", "::1"} for host in hosts):
         raise RuntimeError("Sample patient data can only be seeded into a local PostgreSQL database.")
 
     inserted = 0
